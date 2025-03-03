@@ -264,9 +264,22 @@ func createFile(c *cobra.Command, objs map[string]*makeInterfaceFile) error {
 			return fmt.Errorf("write file error: %s", err.Error())
 		}
 
+		var cmd []string
 		if commandExists("mockgen") {
-			cmd := exec.Command("mockgen", "-source", fileName, "-destination", filepath.Join(obj.DirPath, "kod_gen_mock.go"),
-				"-package", pkgName, "-typed", "-build_constraint", "!ignoreKodGen")
+			cmd = []string{"mockgen"}
+		} else if commandExists("go") {
+			cmd = []string{"go", "tool", "mockgen"}
+		}
+
+		if len(cmd) > 0 {
+			name := cmd[0]
+			args := []string{"-source", fileName, "-destination", filepath.Join(obj.DirPath, "kod_gen_mock.go"),
+				"-package", pkgName, "-typed", "-build_constraint", "!ignoreKodGen"}
+			if len(cmd) > 1 {
+				args = append(cmd[1:], args...)
+			}
+
+			cmd := exec.Command(name, args...)
 			cmd.Stderr = os.Stderr
 			cmd.Stdout = os.Stdout
 
@@ -277,6 +290,7 @@ func createFile(c *cobra.Command, objs map[string]*makeInterfaceFile) error {
 				return fmt.Errorf("mockgen error: %s", err.Error())
 			}
 		} else {
+
 			fmt.Println(color.YellowString("mockgen not found, please install it by running `go install go.uber.org/mock/mockgen@latest`"))
 		}
 	}
@@ -314,7 +328,7 @@ func makeFile(file string) (*makeInterfaceFile, error) {
 
 	for _, structName := range structInfo.structs {
 		mockComment := ""
-		if commandExists("mockgen") {
+		if commandExists("mockgen") || commandExists("go") {
 			mockComment = fmt.Sprintf(",\n// which can be mocked with [NewMock%s]", structInfo.struct2Interfaces[structName])
 		}
 
